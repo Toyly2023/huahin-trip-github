@@ -258,6 +258,9 @@
   .info { display: block; margin-top: 3px; padding: 4px 8px; font-size: .8rem; line-height: 1.45; color: var(--ink);
     background: color-mix(in srgb, var(--lagoon) 9%, transparent); border-left: 3px solid var(--lagoon); border-radius: 0 6px 6px 0; }
   li.past .info { opacity: .7; }
+  .map-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 10px; font-size: .78rem; font-weight: 600;
+    color: var(--sea); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+  .map-link:hover { border-color: var(--lagoon); background: color-mix(in srgb, var(--lagoon) 10%, var(--surface)); }
 
   /* เช็คลิสต์ */
   .pack-head { display: flex; gap: 12px; align-items: center; }
@@ -795,7 +798,7 @@ function renderTimeline() {
   items.forEach((it, i) => { if (validTime(it.t) && toDate(activeDay, it.t) <= now) nowIdx = i; });
   $("#timeline").innerHTML = items.map((it, i) => {
     const cls = i < nowIdx ? "past" : (i === nowIdx ? "now" : "");
-    return `<li class="${cls}"><span class="tl-ico" aria-hidden="true">${iconFor(it.a)}</span><span class="t">${esc(it.t)}</span> ${esc(it.a)}${cls === "now" ? '<span class="now-tag">ตอนนี้</span>' : ""}${it.n ? `<span class="note">${esc(it.n)}</span>` : ""}${infoFor(it.a) ? `<span class="info">${esc(infoFor(it.a))}</span>` : ""}</li>`;
+    return `<li class="${cls}"><span class="tl-ico" aria-hidden="true">${iconFor(it.a)}</span><span class="t">${esc(it.t)}</span> ${esc(it.a)}${cls === "now" ? '<span class="now-tag">ตอนนี้</span>' : ""}${it.n ? `<span class="note">${esc(it.n)}</span>` : ""}${infoFor(it.a) ? `<span class="info">${esc(infoFor(it.a))}</span>` : ""}${(() => { const m = mapFor(it.a); return m ? `<a class="map-link" href="${esc(m.url)}" target="_blank" rel="noopener">${m.url.includes("/dir/") ? "🧭" : "📍"} ${esc(m.label)}</a>` : ""; })()}</li>`;
   }).join("") || `<li class="meta">ยังไม่มีกิจกรรม กดแก้ไขกำหนดการเพื่อเพิ่ม</li>`;
 }
 /* ===== คำอธิบายสั้นๆ ของแต่ละที่ (จับจากชื่อกิจกรรม แก้กำหนดการแล้วยังขึ้นได้) ===== */
@@ -820,6 +823,34 @@ const PLACE_INFO = [
   [/เดินทางกลับ/, "ขากลับถนนเพชรเกษม–พระราม 2 ช่วงเย็นวันอาทิตย์รถอาจหนาแน่น เผื่อเวลาไว้"]
 ];
 const infoFor = (t) => (PLACE_INFO.find(([re]) => re.test(t)) || [0, ""])[1];
+/* ===== ลิงก์ Google Maps ของแต่ละกิจกรรม (ร้านโหวตชนะจะใช้ชื่อร้านนั้นให้อัตโนมัติ) ===== */
+const HOTEL_Q = "Baan Nokkamin Seaside Hua Hin";
+const gSearch = (q) => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
+const gDir = (q) => "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + encodeURIComponent(q);
+function voteWinner(key) {
+  const c = {};
+  Object.values(S.votes).forEach(v => { if (v && v[key]) c[v[key]] = (c[v[key]] || 0) + 1; });
+  const top = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+  return top ? top[0] : null;
+}
+const PLACE_MAP = [
+  [/ออกจาก กทม/, () => ({ url: gDir("ครัวเจ๊โอ่งริมคลอง บางตะบูน"), label: "นำทางไปบางตะบูน" })],
+  [/ปั๊ม|ห้องน้ำ/, () => ({ url: gSearch("ปั๊มน้ำมัน ถนนพระราม 2 สมุทรสงคราม"), label: "หาปั๊มระหว่างทาง" })],
+  [/เจ๊โอ่ง|บางตะบูน/, () => ({ url: gSearch("ครัวเจ๊โอ่งริมคลอง บางตะบูน"), label: "แผนที่ร้าน" })],
+  [/ขับไปชะอำ/, () => { const w = voteWinner("cafe"); return { url: gDir(w ? w + " ชะอำ" : "ชะอำ เพชรบุรี"), label: w ? "นำทางไป " + w : "นำทางไปชะอำ" }; }],
+  [/คาเฟ่.*ชะอำ|ชะอำ.*คาเฟ่/, () => { const w = voteWinner("cafe"); return { url: gSearch(w ? w + " ชะอำ" : "คาเฟ่ริมทะเล ชะอำ"), label: w ? "แผนที่ " + w : "ดูคาเฟ่ชะอำ" }; }],
+  [/ขับต่อไปที่พัก/, () => ({ url: gDir(HOTEL_Q), label: "นำทางไปที่พัก" })],
+  [/เช็คอิน|นกขมิ้น|ถ่ายรูปชายหาด|ขนเตา|ปิ้งย่าง|อาหารเช้า|รับลมทะเล/, () => ({ url: gSearch(HOTEL_Q), label: "แผนที่ที่พัก" })],
+  [/มื้อเย็น/, () => { const w = voteWinner("dinner"); return { url: gSearch(w ? w + " หัวหิน" : "ร้านอาหาร เขาเต่า หัวหิน"), label: w ? "แผนที่ " + w : "ดูร้านแถวที่พัก" }; }],
+  [/อุดมโภชนา/, () => ({ url: gSearch("อุดมโภชนา ปากน้ำปราณ"), label: "แผนที่ร้าน" })],
+  [/ปราณบุรี|ป่าชายเลน/, () => ({ url: gSearch("วนอุทยานปากน้ำปราณ"), label: "แผนที่วนอุทยาน" })],
+  [/ของฝาก/, () => ({ url: gSearch("ร้านของฝาก ปราณบุรี"), label: "หาร้านของฝาก" })],
+  [/เดินทางกลับ/, () => ({ url: gDir("กรุงเทพมหานคร"), label: "นำทางกลับกรุงเทพฯ" })]
+];
+function mapFor(text) {
+  const m = PLACE_MAP.find(([re]) => re.test(text));
+  return m ? m[1]() : null;
+}
 const ICONS = [
   [/ขับ|ออกจาก|เดินทาง|กลับ/, "🚗"], [/คาเฟ่|กาแฟ/, "☕"], [/ข้าว|มื้อ|อาหาร|กิน/, "🍽️"],
   [/ปิ้ง|ย่าง|เตา|ถ่าน/, "🔥"], [/ถ่ายรูป|รูป/, "📸"], [/เช็คอิน|เช็คเอาท์|เช็คเอาต์|ที่พัก/, "🏠"],
@@ -965,6 +996,7 @@ function renderVoteSummary() {
 }
 function renderVotes() {
   renderVoteSummary();
+  if (!editing) renderTimeline();
   ["cafe", "dinner"].forEach(key => {
     const opts = optionsOf(key);
     const voters = {}; opts.forEach(o => voters[o] = []);
