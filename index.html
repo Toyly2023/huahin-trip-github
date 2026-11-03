@@ -97,9 +97,11 @@
   .edit-row .bad { border-color: #C0392B; outline: 2px solid #C0392B; }
   .edit-row input { font: inherit; font-size: .9rem; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
   .edit-row .note-in { grid-column: 2 / 3; color: var(--muted); }
-  .edit-row .del { grid-row: 1 / 3; grid-column: 3; align-self: center; border-color: var(--line); color: var(--muted); }
+  .edit-row .map-in { grid-column: 2 / 3; font-size: .82rem; border-style: dashed; }
+  .edit-row .del { grid-row: 1 / 4; grid-column: 3; align-self: center; border-color: var(--line); color: var(--muted); }
   .edit-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .edit-bar[hidden] { display: none; }
+  .edit-hint { flex-basis: 100%; margin: 0 0 4px; font-size: .78rem; }
   .day-title { margin: -4px 0 10px; font-family: "Mitr", sans-serif; color: var(--sea); }
   ol.timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--line); }
   ol.timeline li { position: relative; padding: 0 0 10px 18px; }
@@ -260,6 +262,7 @@
   li.past .info { opacity: .7; }
   .map-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 3px 10px; font-size: .78rem; font-weight: 600;
     color: var(--sea); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+  .map-custom { margin-left: 6px; font-size: .72rem; color: var(--muted); }
   .map-link:hover { border-color: var(--lagoon); background: color-mix(in srgb, var(--lagoon) 10%, var(--surface)); }
 
   /* เช็คลิสต์ */
@@ -388,6 +391,7 @@
       <p class="day-title" id="day-title"></p>
       <ol class="timeline" id="timeline"></ol>
       <div class="edit-bar" id="edit-bar" hidden>
+        <p class="edit-hint meta">ช่อง 📍 ใส่ลิงก์ Google Maps (กดแชร์ในแอป Maps แล้วคัดลอกลิงก์) หรือพิมพ์ชื่อสถานที่ก็ได้ เว้นว่างไว้ = ใช้ลิงก์อัตโนมัติ</p>
         <button type="button" class="btn" id="add-item">เพิ่มกิจกรรม</button>
         <button type="button" class="btn ghost" id="reset-schedule">คืนค่ากำหนดการเดิม</button>
       </div>
@@ -788,6 +792,7 @@ function renderTimeline() {
       <input class="time-in${normTime(it.t) ? "" : " bad"}" value="${esc(it.t)}" data-i="${i}" data-f="t" aria-label="เวลา (24 ชม.)" placeholder="08:30" inputmode="numeric" maxlength="5">
       <input value="${esc(it.a)}" data-i="${i}" data-f="a" aria-label="กิจกรรม" placeholder="กิจกรรม">
       <input class="note-in" value="${esc(it.n)}" data-i="${i}" data-f="n" aria-label="หมายเหตุ" placeholder="หมายเหตุ (ไม่ใส่ก็ได้)">
+      <input class="map-in${mapInputBad(it.m) ? " bad" : ""}" value="${esc(it.m || "")}" data-i="${i}" data-f="m" aria-label="แผนที่: ลิงก์ Google Maps หรือชื่อสถานที่" placeholder="📍 ลิงก์แผนที่ หรือชื่อสถานที่">
       <button type="button" class="btn del" data-del-item="${i}" aria-label="ลบกิจกรรม ${esc(it.a)}">ลบ</button>
     </div></li>`).join("") || `<li class="meta">ยังไม่มีกิจกรรมในวันนี้ กดเพิ่มกิจกรรมด้านล่าง</li>`;
     return;
@@ -798,7 +803,7 @@ function renderTimeline() {
   items.forEach((it, i) => { if (validTime(it.t) && toDate(activeDay, it.t) <= now) nowIdx = i; });
   $("#timeline").innerHTML = items.map((it, i) => {
     const cls = i < nowIdx ? "past" : (i === nowIdx ? "now" : "");
-    return `<li class="${cls}"><span class="tl-ico" aria-hidden="true">${iconFor(it.a)}</span><span class="t">${esc(it.t)}</span> ${esc(it.a)}${cls === "now" ? '<span class="now-tag">ตอนนี้</span>' : ""}${it.n ? `<span class="note">${esc(it.n)}</span>` : ""}${infoFor(it.a) ? `<span class="info">${esc(infoFor(it.a))}</span>` : ""}${(() => { const m = mapFor(it.a); return m ? `<a class="map-link" href="${esc(m.url)}" target="_blank" rel="noopener">${m.url.includes("/dir/") ? "🧭" : "📍"} ${esc(m.label)}</a>` : ""; })()}</li>`;
+    return `<li class="${cls}"><span class="tl-ico" aria-hidden="true">${iconFor(it.a)}</span><span class="t">${esc(it.t)}</span> ${esc(it.a)}${cls === "now" ? '<span class="now-tag">ตอนนี้</span>' : ""}${it.n ? `<span class="note">${esc(it.n)}</span>` : ""}${infoFor(it.a) ? `<span class="info">${esc(infoFor(it.a))}</span>` : ""}${(() => { const m = mapFor(it); return m ? `<a class="map-link" href="${esc(m.url)}" target="_blank" rel="noopener">${m.url.includes("/dir/") ? "🧭" : "📍"} ${esc(m.label)}</a>${m.custom ? '<span class="map-custom">แก้ไขแล้ว</span>' : ""}` : ""; })()}</li>`;
   }).join("") || `<li class="meta">ยังไม่มีกิจกรรม กดแก้ไขกำหนดการเพื่อเพิ่ม</li>`;
 }
 /* ===== คำอธิบายสั้นๆ ของแต่ละที่ (จับจากชื่อกิจกรรม แก้กำหนดการแล้วยังขึ้นได้) ===== */
@@ -847,8 +852,23 @@ const PLACE_MAP = [
   [/ของฝาก/, () => ({ url: gSearch("ร้านของฝาก ปราณบุรี"), label: "หาร้านของฝาก" })],
   [/เดินทางกลับ/, () => ({ url: gDir("กรุงเทพมหานคร"), label: "นำทางกลับกรุงเทพฯ" })]
 ];
-function mapFor(text) {
-  const m = PLACE_MAP.find(([re]) => re.test(text));
+// ช่องแผนที่ที่แก้เอง: ลิงก์ https หรือชื่อสถานที่ ใส่แล้วจะใช้แทนลิงก์อัตโนมัติ
+const fixUrl = (v) => { v = String(v || "").trim(); return /^(www\.|maps\.app\.goo\.gl|goo\.gl|maps\.google\.)/i.test(v) ? "https://" + v : v; };
+const isUrl = (v) => /^https?:\/\//i.test(fixUrl(v));
+const looksUrl = (v) => /^(https?|www\.|http)|\/\/|\.(com|gl|co|th)(\/|$)/i.test(String(v || "").trim());
+function mapInputBad(v) {
+  v = fixUrl(v);
+  if (!v) return false;
+  if (isUrl(v)) { try { const u = new URL(v); return !u.hostname.includes("."); } catch { return true; } }
+  return looksUrl(v);   // ดูเหมือนลิงก์แต่พิมพ์ไม่ครบ เช่น http//...
+}
+function mapFor(it) {
+  const custom = String(it.m || "").trim();
+  if (custom && !mapInputBad(custom)) {
+    if (isUrl(custom)) return { url: fixUrl(custom), label: "แผนที่ (ลิงก์ที่ใส่เอง)", custom: true };
+    return { url: gSearch(custom), label: "แผนที่ " + custom, custom: true };
+  }
+  const m = PLACE_MAP.find(([re]) => re.test(it.a));
   return m ? m[1]() : null;
 }
 const ICONS = [
@@ -876,6 +896,14 @@ async function setEditing(on) {
       alert("มีเวลาที่ไม่ถูกต้อง ใส่แบบ 24 ชั่วโมง เช่น 09:45 หรือ 14:00");
       return;
     }
+    let badMap = -1;
+    DAY_KEYS.forEach((k, di) => draft[k].forEach(it => { it.m = fixUrl(it.m); if (mapInputBad(it.m) && badMap < 0) badMap = di; }));
+    if (badMap >= 0) {
+      activeDay = badMap; renderTimeline();
+      document.querySelector("#timeline .map-in.bad")?.focus();
+      alert("ลิงก์แผนที่ไม่ถูกต้อง วางลิงก์ที่ขึ้นต้นด้วย https:// หรือพิมพ์ชื่อสถานที่แทน");
+      return;
+    }
     DAY_KEYS.forEach(k => draft[k] = draft[k].filter(it => it.a.trim() || it.n.trim()).sort(byTime));
     S.schedule = draft; draft = null; editing = false;
     const btn = $("#edit-toggle"); btn.disabled = true; btn.textContent = "กำลังบันทึก…";
@@ -900,6 +928,7 @@ $("#timeline").addEventListener("input", e => {
   if (!el) return;
   draft[DAY_KEYS[activeDay]][+el.dataset.i][el.dataset.f] = el.value;
   if (el.classList.contains("time-in")) el.classList.toggle("bad", !normTime(el.value));
+  if (el.classList.contains("map-in")) el.classList.toggle("bad", mapInputBad(el.value));
 });
 $("#timeline").addEventListener("click", e => {
   const b = e.target.closest("[data-del-item]");
@@ -912,7 +941,7 @@ $("#add-item").addEventListener("click", () => {
   const list = draft[DAY_KEYS[activeDay]];
   const last = list.length ? (normTime(list[list.length - 1].t) || "08:00") : "08:00";
   const [h, m] = last.split(":").map(Number);
-  list.push({ t: `${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`, a: "", n: "" });
+  list.push({ t: `${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`, a: "", n: "", m: "" });
   renderTimeline();
   const rows = document.querySelectorAll('#timeline input[data-f="a"]');
   rows[rows.length - 1]?.focus();
